@@ -4,8 +4,9 @@ import {
   MetricSummary,
   MatchedInterval,
   DataQualityReport,
-  HealthResponse
+  HealthResponse,
 } from './types';
+import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { KPICards } from './components/KPICards';
 import { FilterControls } from './components/FilterControls';
@@ -14,7 +15,7 @@ import { ErrorDistributionChart } from './components/ErrorDistributionChart';
 import { DailySummaryTable } from './components/DailySummaryTable';
 import { DataQualityCard } from './components/DataQualityCard';
 import { MethodologyModal } from './components/MethodologyModal';
-import { AlertCircle, ExternalLink } from 'lucide-react';
+import { AlertCircle, ExternalLink, Menu, X } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [startDate, setStartDate] = useState('2026-01-01');
@@ -29,8 +30,10 @@ export const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isMethodologyOpen, setIsMethodologyOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState('overview');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Load health check on mount
+  // Initial health check
   useEffect(() => {
     api.getHealth()
       .then(setHealth)
@@ -45,7 +48,7 @@ export const App: React.FC = () => {
       const [sumRes, genRes, qualRes] = await Promise.all([
         api.getSummary(startDate, endDate, cutoffHour),
         api.getGenerationSeries(startDate, endDate, cutoffHour),
-        api.getDataQuality(startDate, endDate, cutoffHour)
+        api.getDataQuality(startDate, endDate, cutoffHour),
       ]);
 
       setSummary(sumRes);
@@ -64,95 +67,178 @@ export const App: React.FC = () => {
   }, [startDate, endDate, cutoffHour]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#070a12] text-slate-100">
+    <div className="min-h-screen flex bg-[#0B1120] text-slate-100 overflow-x-hidden">
       
-      {/* Top Navigation & Status */}
-      <Header
-        health={health}
-        onOpenMethodology={() => setIsMethodologyOpen(true)}
-      />
+      {/* 1. Desktop Sidebar */}
+      <div className="hidden md:block">
+        <Sidebar
+          activeSection={activeSection}
+          onSelectSection={setActiveSection}
+          onOpenMethodology={() => setIsMethodologyOpen(true)}
+          health={health}
+        />
+      </div>
 
-      {/* Main Dashboard Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
-        
-        {/* Error Alert if API failed */}
-        {error && (
-          <div className="bg-rose-950/80 border border-rose-800 rounded-xl p-4 flex items-start space-x-3 text-rose-200">
-            <AlertCircle className="w-5 h-5 text-rose-400 mt-0.5 shrink-0" />
-            <div className="text-xs">
-              <span className="font-bold text-sm block text-rose-100">Connection Error</span>
-              <span>{error}</span>
-              <p className="mt-1 text-rose-300">
-                Ensure the FastAPI backend server is running on <code className="bg-rose-900/60 px-1 py-0.5 rounded">http://localhost:8000</code>.
-              </p>
+      {/* Mobile Drawer Menu */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-50 md:hidden flex">
+          <div
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm"
+            onClick={() => setMobileMenuOpen(false)}
+          ></div>
+          <div className="relative z-10 w-64 bg-[#0E1626] border-r border-[#253249] flex flex-col justify-between">
+            <div className="p-4 flex items-center justify-between border-b border-[#253249]">
+              <span className="font-bold text-white text-sm">Navigation</span>
+              <button
+                onClick={() => setMobileMenuOpen(false)}
+                className="p-1 rounded text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              <Sidebar
+                activeSection={activeSection}
+                onSelectSection={(sec) => {
+                  setActiveSection(sec);
+                  setMobileMenuOpen(false);
+                }}
+                onOpenMethodology={() => {
+                  setIsMethodologyOpen(true);
+                  setMobileMenuOpen(false);
+                }}
+                health={health}
+              />
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* 1. Filter & Date Range Selector */}
-        <FilterControls
-          startDate={startDate}
-          endDate={endDate}
-          cutoffHour={cutoffHour}
-          loading={loading}
-          onStartDateChange={setStartDate}
-          onEndDateChange={setEndDate}
-          onCutoffHourChange={setCutoffHour}
-          onRefresh={loadData}
-        />
-
-        {/* 2. Primary KPI Cards */}
-        <KPICards summary={summary} loading={loading} />
-
-        {/* 3. Main Time Series Chart: Actual vs Forecast */}
-        <GenerationChart intervals={intervals} loading={loading} />
-
-        {/* 4. Secondary Chart: Error Distribution */}
-        <ErrorDistributionChart intervals={intervals} loading={loading} />
-
-        {/* 5. Daily Breakdown Table & Data Quality Audit */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <DailySummaryTable dailyMetrics={summary?.daily_metrics || []} />
-          </div>
-          <div>
-            <DataQualityCard report={dataQuality} loading={loading} />
-          </div>
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        
+        {/* Mobile menu trigger bar (only on small screens) */}
+        <div className="md:hidden flex items-center justify-between px-4 py-2 bg-[#0E1626] border-b border-[#253249]">
+          <button
+            onClick={() => setMobileMenuOpen(true)}
+            className="flex items-center gap-2 text-xs text-slate-300 font-medium p-1 rounded hover:bg-[#1A2740]"
+          >
+            <Menu className="w-4 h-4 text-teal" />
+            <span>Menu</span>
+          </button>
+          <span className="text-xs font-bold text-white">WindLens UK</span>
+          <span className="text-[11px] text-teal font-mono-numbers">Jan 2026</span>
         </div>
 
-      </main>
+        {/* 2. Top Header */}
+        <Header
+          health={health}
+          onOpenMethodology={() => setIsMethodologyOpen(true)}
+        />
 
-      {/* Methodology & Rules Modal */}
+        {/* Dashboard Sections Container */}
+        <main className="flex-1 p-4 md:p-6 space-y-6 max-w-7xl w-full mx-auto">
+          
+          {/* Connection Error Banner (if any) */}
+          {error && (
+            <div className="bg-rose-950/80 border border-rose-800/80 rounded-xl p-4 flex items-start space-x-3 text-rose-200">
+              <AlertCircle className="w-5 h-5 text-rose-400 mt-0.5 shrink-0" />
+              <div className="text-xs">
+                <span className="font-bold text-sm block text-rose-100">Connection Error</span>
+                <span>{error}</span>
+                <p className="mt-1 text-rose-300">
+                  Ensure the FastAPI backend is running on <code className="bg-rose-900/60 px-1 py-0.5 rounded">http://127.0.0.1:8000</code>.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* SECTION: Overview & Filter Toolbar */}
+          <section id="overview" className="space-y-4 scroll-mt-20">
+            {/* 3. Filter Toolbar */}
+            <FilterControls
+              startDate={startDate}
+              endDate={endDate}
+              cutoffHour={cutoffHour}
+              loading={loading}
+              onStartDateChange={setStartDate}
+              onEndDateChange={setEndDate}
+              onCutoffHourChange={setCutoffHour}
+              onRefresh={loadData}
+            />
+
+            {/* 4. KPI Cards */}
+            <KPICards summary={summary} loading={loading} />
+          </section>
+
+          {/* SECTION: Forecast Analysis (Main Charts) */}
+          <section id="forecast-analysis" className="space-y-4 scroll-mt-20">
+            {/* 5. Main Generation Chart */}
+            <GenerationChart intervals={intervals} loading={loading} />
+
+            {/* 6. Forecast Error Chart */}
+            <ErrorDistributionChart intervals={intervals} loading={loading} />
+          </section>
+
+          {/* SECTION: Accuracy Breakdown & Data Quality */}
+          <section id="accuracy-breakdown" className="scroll-mt-20">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+              
+              {/* 7. Daily Accuracy Table */}
+              <div className="lg:col-span-2">
+                <DailySummaryTable dailyMetrics={summary?.daily_metrics || []} />
+              </div>
+
+              {/* 8. Data Quality Panel */}
+              <div id="data-quality" className="scroll-mt-20">
+                <DataQualityCard report={dataQuality} loading={loading} />
+              </div>
+
+            </div>
+          </section>
+
+        </main>
+
+        {/* 9. Global Footer */}
+        <footer className="border-t border-[#253249] bg-[#0E1626]/80 py-4 px-6 text-xs text-slate-400 mt-10">
+          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px]">
+            <div className="flex items-center space-x-2">
+              <span className="font-semibold text-white">WindLens</span>
+              <span>·</span>
+              <span>UK Wind Generation Forecast Analytics (Gridbricks Challenge)</span>
+            </div>
+
+            <div className="flex items-center space-x-3 text-slate-400">
+              <span className="font-mono-numbers">Window: {startDate} to {endDate} (UTC)</span>
+              <span>·</span>
+              <a
+                href="https://bmrs.elexon.co.uk/"
+                target="_blank"
+                rel="noreferrer"
+                className="hover:text-teal transition-colors flex items-center gap-1"
+              >
+                <span>Elexon BMRS Insights</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+              <span>·</span>
+              <button
+                onClick={() => setIsMethodologyOpen(true)}
+                className="hover:text-teal transition-colors underline underline-offset-2"
+              >
+                Methodology
+              </button>
+            </div>
+          </div>
+        </footer>
+
+      </div>
+
+      {/* Methodology Modal */}
       <MethodologyModal
         isOpen={isMethodologyOpen}
         onClose={() => setIsMethodologyOpen(false)}
         cutoffHour={cutoffHour}
       />
-
-      {/* Global Footer */}
-      <footer className="border-t border-slate-900 bg-slate-950/80 py-6 px-6 text-xs text-slate-400 mt-12">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center space-x-2">
-            <span className="font-semibold text-slate-300">WindLens</span>
-            <span>·</span>
-            <span>UK Wind Generation Forecast Analytics (Gridbricks SWE Challenge)</span>
-          </div>
-
-          <div className="flex items-center space-x-4">
-            <a
-              href="https://bmrs.elexon.co.uk/"
-              target="_blank"
-              rel="noreferrer"
-              className="hover:text-cyan-400 transition-colors flex items-center gap-1"
-            >
-              <span>Elexon BMRS Insights</span>
-              <ExternalLink className="w-3 h-3" />
-            </a>
-            <span>·</span>
-            <span className="text-slate-400">Strict Day-Ahead Cutoff Backtesting</span>
-          </div>
-        </div>
-      </footer>
 
     </div>
   );

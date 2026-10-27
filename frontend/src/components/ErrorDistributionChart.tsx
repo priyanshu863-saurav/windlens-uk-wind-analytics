@@ -8,7 +8,7 @@ import {
   Tooltip,
   CartesianGrid,
   ReferenceLine,
-  Cell
+  Cell,
 } from 'recharts';
 import { MatchedInterval } from '../types';
 
@@ -17,7 +17,10 @@ interface ErrorDistributionChartProps {
   loading: boolean;
 }
 
-export const ErrorDistributionChart: React.FC<ErrorDistributionChartProps> = ({ intervals, loading }) => {
+export const ErrorDistributionChart: React.FC<ErrorDistributionChartProps> = ({
+  intervals,
+  loading,
+}) => {
   if (loading && intervals.length === 0) {
     return null;
   }
@@ -33,7 +36,7 @@ export const ErrorDistributionChart: React.FC<ErrorDistributionChartProps> = ({ 
         displayLabel: `${dateLabel} ${timeLabel}`,
         error: item.error_mw as number,
         actual: item.actual_mw,
-        forecast: item.forecast_mw
+        forecast: item.forecast_mw,
       };
     });
 
@@ -43,15 +46,15 @@ export const ErrorDistributionChart: React.FC<ErrorDistributionChartProps> = ({ 
       const errorVal = data.error;
 
       return (
-        <div className="bg-slate-900/95 border border-slate-700/80 rounded-xl p-3 shadow-xl backdrop-blur-md text-xs space-y-1.5 font-mono-numbers">
+        <div className="bg-[#0E1626] border border-[#253249] rounded-lg p-2.5 shadow-panel text-xs space-y-1 font-mono-numbers">
           <div className="text-white font-semibold font-sans">{data.displayLabel} UTC</div>
           <div className="flex items-center justify-between gap-4">
-            <span className="text-slate-400">Forecast Error (F - A):</span>
-            <span className={`font-bold ${errorVal >= 0 ? 'text-amber-400' : 'text-sky-400'}`}>
+            <span className="text-slate-400">Deviation (F - A):</span>
+            <span className={`font-bold ${errorVal >= 0 ? 'text-amber' : 'text-teal'}`}>
               {errorVal > 0 ? `+${errorVal.toLocaleString()}` : `${errorVal.toLocaleString()}`} MW
             </span>
           </div>
-          <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-800">
+          <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-[#253249]">
             <span>Forecast: {data.forecast?.toLocaleString()} MW</span>
             <span>Actual: {data.actual?.toLocaleString()} MW</span>
           </div>
@@ -62,53 +65,60 @@ export const ErrorDistributionChart: React.FC<ErrorDistributionChartProps> = ({ 
   };
 
   return (
-    <div className="glass-panel p-5 space-y-3">
+    <div className="saas-card p-5 space-y-2.5">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
-          <h3 className="text-sm md:text-base font-bold text-white flex items-center gap-2">
-            <span>Half-Hourly Forecast Deviation (Fᵢ − Aᵢ)</span>
-            <span className="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-normal">
+          <h3 className="text-sm font-bold text-white flex items-center gap-2">
+            <span>Forecast Error Distribution (Fᵢ − Aᵢ)</span>
+            <span className="text-[11px] px-1.5 py-0.5 rounded bg-[#0E1626] border border-[#253249] text-slate-300 font-normal">
               MW Error
             </span>
           </h3>
-          <p className="text-xs text-slate-400">
-            Positive error (amber) indicates Over-forecast; Negative error (sky) indicates Under-forecast.
+          <p className="text-[11px] text-slate-400">
+            Positive error (amber) indicates Over-forecast; Negative error (teal) indicates Under-forecast.
           </p>
         </div>
         <div className="flex items-center space-x-3 text-xs">
-          <span className="flex items-center gap-1.5 text-amber-400">
-            <span className="w-2 h-2 rounded bg-amber-400"></span> Over-forecast (+MW)
+          <span className="flex items-center gap-1.5 text-amber text-[11px]">
+            <span className="w-2 h-2 rounded bg-amber"></span> Over-forecast (+MW)
           </span>
-          <span className="flex items-center gap-1.5 text-sky-400">
-            <span className="w-2 h-2 rounded bg-sky-400"></span> Under-forecast (-MW)
+          <span className="flex items-center gap-1.5 text-teal text-[11px]">
+            <span className="w-2 h-2 rounded bg-teal"></span> Under-forecast (-MW)
           </span>
         </div>
       </div>
 
-      <div className="h-[220px] w-full pt-1">
+      <div
+        className="w-full pt-1"
+        style={{ height: '220px', minHeight: '220px', minWidth: '0' }}
+      >
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={errorData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+            <CartesianGrid stroke="#1E2A40" strokeDasharray="3 3" vertical={false} />
             <XAxis
               dataKey="displayLabel"
-              stroke="#64748b"
-              tick={{ fontSize: 10, fill: '#94a3b8' }}
-              minTickGap={40}
+              stroke="#64748B"
+              tick={{ fontSize: 10, fill: '#94A3B8' }}
+              minTickGap={45}
+              tickLine={false}
+              axisLine={{ stroke: '#253249' }}
             />
             <YAxis
-              stroke="#64748b"
-              tick={{ fontSize: 10, fill: '#94a3b8' }}
+              stroke="#64748B"
+              tick={{ fontSize: 10, fill: '#94A3B8' }}
               tickFormatter={(v) => `${(v / 1000).toFixed(1)}k`}
               unit=" MW"
               width={65}
+              tickLine={false}
+              axisLine={{ stroke: '#253249' }}
             />
             <Tooltip content={<CustomTooltip />} />
-            <ReferenceLine y={0} stroke="#475569" strokeWidth={1.5} />
+            <ReferenceLine y={0} stroke="#475569" strokeWidth={1} />
             <Bar dataKey="error">
               {errorData.map((entry, index) => (
                 <Cell
                   key={`cell-${index}`}
-                  fill={entry.error >= 0 ? '#f59e0b' : '#38bdf8'}
+                  fill={entry.error >= 0 ? '#FBBF24' : '#2DD4BF'}
                   opacity={0.85}
                 />
               ))}
