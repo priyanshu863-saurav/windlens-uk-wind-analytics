@@ -29,9 +29,7 @@ class ElexonClient:
         safe_end = end_iso.replace(":", "-").replace("+", "_")
         return self.cache_path / f"{dataset}_{safe_start}_{safe_end}.json"
 
-    async def _fetch_stream(
-        self, endpoint: str, params: dict[str, str]
-    ) -> list[dict[str, Any]]:
+    async def _fetch_stream(self, endpoint: str, params: dict[str, str]) -> list[dict[str, Any]]:
         url = f"{self.base_url}/{endpoint.lstrip('/')}"
         headers = {
             "Accept": "application/json",
@@ -46,25 +44,17 @@ class ElexonClient:
                     if response.status_code == 200:
                         return response.json()
                     elif response.status_code == 404:
-                        logger.warning(
-                            f"Elexon returned 404 for {url} with params {params}"
-                        )
+                        logger.warning(f"Elexon returned 404 for {url} with params {params}")
                         return []
                     else:
-                        logger.warning(
-                            f"Elexon returned status {response.status_code} on attempt {attempt}"
-                        )
+                        logger.warning(f"Elexon returned status {response.status_code} on attempt {attempt}")
                         response.raise_for_status()
             except Exception as e:
                 last_error = e
-                logger.warning(
-                    f"Error fetching from Elexon (attempt {attempt}/{self.max_retries}): {e}"
-                )
+                logger.warning(f"Error fetching from Elexon (attempt {attempt}/{self.max_retries}): {e}")
 
         if last_error:
-            logger.error(
-                f"Failed to fetch {url} after {self.max_retries} attempts: {last_error}"
-            )
+            logger.error(f"Failed to fetch {url} after {self.max_retries} attempts: {last_error}")
             raise last_error
         return []
 
@@ -89,11 +79,7 @@ class ElexonClient:
         raw_data = await self._fetch_stream("datasets/FUELHH/stream", params)
 
         # Filter for WIND fuel type
-        wind_records = [
-            record
-            for record in raw_data
-            if record.get("fuelType", "").upper() == "WIND"
-        ]
+        wind_records = [record for record in raw_data if record.get("fuelType", "").upper() == "WIND"]
 
         # Save to disk cache
         try:
@@ -104,9 +90,7 @@ class ElexonClient:
 
         return wind_records
 
-    async def get_windfor_forecasts(
-        self, start_iso: str, end_iso: str, use_cache: bool = True
-    ) -> list[dict[str, Any]]:
+    async def get_windfor_forecasts(self, start_iso: str, end_iso: str, use_cache: bool = True) -> list[dict[str, Any]]:
         """
         Fetch WINDFOR wind forecasts published between start_iso and end_iso.
         """

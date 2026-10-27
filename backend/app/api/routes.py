@@ -21,16 +21,12 @@ DEFAULT_START = date(2026, 1, 1)
 DEFAULT_END = date(2026, 1, 31)
 
 
-async def get_aligned_data(
-    start_date: date, end_date: date, cutoff_hour: int, use_cache: bool = True
-):
+async def get_aligned_data(start_date: date, end_date: date, cutoff_hour: int, use_cache: bool = True):
     """
     Helper to fetch actuals and forecasts from Elexon and run matching pipeline.
     """
     if start_date > end_date:
-        raise HTTPException(
-            status_code=400, detail="start_date must be on or before end_date"
-        )
+        raise HTTPException(status_code=400, detail="start_date must be on or before end_date")
 
     # Day-Ahead decisions for start_date need forecasts published from start_date - 2 days
     # (to ensure we capture all relevant day-ahead publications)
@@ -43,17 +39,11 @@ async def get_aligned_data(
     forecast_end_iso = end_iso
 
     try:
-        actuals = await elexon_client.get_fuelhh_wind_actuals(
-            start_iso, end_iso, use_cache=use_cache
-        )
-        forecasts = await elexon_client.get_windfor_forecasts(
-            forecast_start_iso, forecast_end_iso, use_cache=use_cache
-        )
+        actuals = await elexon_client.get_fuelhh_wind_actuals(start_iso, end_iso, use_cache=use_cache)
+        forecasts = await elexon_client.get_windfor_forecasts(forecast_start_iso, forecast_end_iso, use_cache=use_cache)
     except Exception as e:
         logger.error(f"Failed to fetch data from Elexon: {e}")
-        raise HTTPException(
-            status_code=502, detail=f"Failed to fetch Elexon BMRS data: {e!s}"
-        ) from e
+        raise HTTPException(status_code=502, detail=f"Failed to fetch Elexon BMRS data: {e!s}") from e
 
     matched_intervals, quality_report = AnalyticsService.match_actuals_and_forecasts(
         actual_records=actuals,
@@ -79,12 +69,8 @@ async def health_check():
 
 @router.get("/api/summary", response_model=MetricSummary, tags=["Analytics"])
 async def get_summary(
-    start_date: date = Query(
-        DEFAULT_START, description="Analysis window start date (YYYY-MM-DD)"
-    ),
-    end_date: date = Query(
-        DEFAULT_END, description="Analysis window end date (YYYY-MM-DD)"
-    ),
+    start_date: date = Query(DEFAULT_START, description="Analysis window start date (YYYY-MM-DD)"),
+    end_date: date = Query(DEFAULT_END, description="Analysis window end date (YYYY-MM-DD)"),
     cutoff_hour: int = Query(
         settings.DEFAULT_DECISION_CUTOFF_HOUR,
         ge=0,
@@ -97,25 +83,15 @@ async def get_summary(
     Calculate high-level KPIs: MAE, RMSE, Mean Signed Error, Sample Count, Coverage %,
     and daily aggregations for the selected date range and cutoff.
     """
-    matched_intervals, _ = await get_aligned_data(
-        start_date, end_date, cutoff_hour, use_cache
-    )
-    summary = AnalyticsService.compute_metrics(
-        matched_intervals, start_date, end_date, cutoff_hour
-    )
+    matched_intervals, _ = await get_aligned_data(start_date, end_date, cutoff_hour, use_cache)
+    summary = AnalyticsService.compute_metrics(matched_intervals, start_date, end_date, cutoff_hour)
     return summary
 
 
-@router.get(
-    "/api/generation", response_model=GenerationSeriesResponse, tags=["Analytics"]
-)
+@router.get("/api/generation", response_model=GenerationSeriesResponse, tags=["Analytics"])
 async def get_generation_series(
-    start_date: date = Query(
-        DEFAULT_START, description="Analysis window start date (YYYY-MM-DD)"
-    ),
-    end_date: date = Query(
-        DEFAULT_END, description="Analysis window end date (YYYY-MM-DD)"
-    ),
+    start_date: date = Query(DEFAULT_START, description="Analysis window start date (YYYY-MM-DD)"),
+    end_date: date = Query(DEFAULT_END, description="Analysis window end date (YYYY-MM-DD)"),
     cutoff_hour: int = Query(
         settings.DEFAULT_DECISION_CUTOFF_HOUR,
         ge=0,
@@ -128,9 +104,7 @@ async def get_generation_series(
     Retrieve full 30-minute time-series of actual wind generation vs the eligible forecast
     available at the purchasing decision cutoff.
     """
-    matched_intervals, _ = await get_aligned_data(
-        start_date, end_date, cutoff_hour, use_cache
-    )
+    matched_intervals, _ = await get_aligned_data(start_date, end_date, cutoff_hour, use_cache)
     return GenerationSeriesResponse(
         intervals=matched_intervals,
         total_records=len(matched_intervals),
@@ -149,17 +123,11 @@ async def get_accuracy(
     """
     Accuracy metrics alias returning statistical metrics and daily error distributions.
     """
-    matched_intervals, _ = await get_aligned_data(
-        start_date, end_date, cutoff_hour, use_cache
-    )
-    return AnalyticsService.compute_metrics(
-        matched_intervals, start_date, end_date, cutoff_hour
-    )
+    matched_intervals, _ = await get_aligned_data(start_date, end_date, cutoff_hour, use_cache)
+    return AnalyticsService.compute_metrics(matched_intervals, start_date, end_date, cutoff_hour)
 
 
-@router.get(
-    "/api/data-quality", response_model=DataQualityReport, tags=["Data Quality"]
-)
+@router.get("/api/data-quality", response_model=DataQualityReport, tags=["Data Quality"])
 async def get_data_quality(
     start_date: date = Query(DEFAULT_START),
     end_date: date = Query(DEFAULT_END),
@@ -169,7 +137,5 @@ async def get_data_quality(
     """
     Audit data completeness, missing actuals, missing forecasts, and live API status.
     """
-    _, quality_report = await get_aligned_data(
-        start_date, end_date, cutoff_hour, use_cache
-    )
+    _, quality_report = await get_aligned_data(start_date, end_date, cutoff_hour, use_cache)
     return quality_report

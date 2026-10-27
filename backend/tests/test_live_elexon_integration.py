@@ -17,9 +17,7 @@ async def test_live_elexon_fuelhh_actuals():
     end_iso = "2026-01-01T04:00:00Z"
 
     actuals = await client.get_fuelhh_wind_actuals(start_iso, end_iso, use_cache=False)
-    assert len(actuals) > 0, (
-        "Expected at least one WIND record from FUELHH for 4h period"
-    )
+    assert len(actuals) > 0, "Expected at least one WIND record from FUELHH for 4h period"
 
     sample = actuals[0]
     assert sample.get("dataset") == "FUELHH"
@@ -68,12 +66,8 @@ async def test_live_january_2026_cutoff_and_alignment():
     forecast_start_iso = "2025-12-30T00:00:00Z"
     forecast_end_iso = actual_end_iso
 
-    actuals = await client.get_fuelhh_wind_actuals(
-        actual_start_iso, actual_end_iso, use_cache=True
-    )
-    forecasts = await client.get_windfor_forecasts(
-        forecast_start_iso, forecast_end_iso, use_cache=True
-    )
+    actuals = await client.get_fuelhh_wind_actuals(actual_start_iso, actual_end_iso, use_cache=True)
+    forecasts = await client.get_windfor_forecasts(forecast_start_iso, forecast_end_iso, use_cache=True)
 
     assert len(actuals) > 0, "Must have actual wind records"
     assert len(forecasts) > 0, "Must have forecast records"
@@ -103,15 +97,11 @@ async def test_live_january_2026_cutoff_and_alignment():
     # 3. Timestamp alignment: Intervals must strictly be at 00:00, 00:30, etc.
     for item in matched:
         dt = parse_utc_timestamp(item.start_time)
-        assert dt.minute in (0, 30), (
-            f"Timestamp {item.start_time} is not aligned to half-hour!"
-        )
+        assert dt.minute in (0, 30), f"Timestamp {item.start_time} is not aligned to half-hour!"
         assert dt.second == 0
 
     # 4. Accuracy metrics calculation
-    summary = AnalyticsService.compute_metrics(
-        matched, start_date, end_date, cutoff_hour
-    )
+    summary = AnalyticsService.compute_metrics(matched, start_date, end_date, cutoff_hour)
     assert summary.matched_intervals > 0
     assert summary.mae_mw > 0
     assert summary.rmse_mw >= summary.mae_mw, "RMSE must be mathematically >= MAE"

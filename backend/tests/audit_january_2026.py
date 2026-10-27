@@ -1,9 +1,9 @@
 import asyncio
 from datetime import date
-import json
 
 from app.clients.elexon import ElexonClient
 from app.services.analytics import AnalyticsService, parse_utc_timestamp
+
 
 async def run_full_audit():
     client = ElexonClient()
@@ -12,15 +12,11 @@ async def run_full_audit():
     cutoff_hour = 12
 
     print("[AUDIT] 1. Ingesting January 2026 FUELHH actual wind generation...")
-    actuals = await client.get_fuelhh_wind_actuals(
-        "2026-01-01T00:00:00Z", "2026-01-31T23:59:59Z", use_cache=True
-    )
+    actuals = await client.get_fuelhh_wind_actuals("2026-01-01T00:00:00Z", "2026-01-31T23:59:59Z", use_cache=True)
     print(f"       -> Retrieved {len(actuals)} FUELHH wind records")
 
     print("[AUDIT] 2. Ingesting WINDFOR forecasts (including D-1 publications)...")
-    forecasts = await client.get_windfor_forecasts(
-        "2025-12-30T00:00:00Z", "2026-01-31T23:59:59Z", use_cache=True
-    )
+    forecasts = await client.get_windfor_forecasts("2025-12-30T00:00:00Z", "2026-01-31T23:59:59Z", use_cache=True)
     print(f"       -> Retrieved {len(forecasts)} WINDFOR forecast candidate records")
 
     print("[AUDIT] 3. Running Interval Matching & Cutoff Backtesting Engine...")
@@ -30,7 +26,7 @@ async def run_full_audit():
         start_date=start_date,
         end_date=end_date,
         cutoff_hour=cutoff_hour,
-        cutoff_minute=0
+        cutoff_minute=0,
     )
     print(f"       -> Evaluated {len(matched)} total expected half-hour settlement intervals")
     print(f"       -> Matched intervals: {quality.matched_intervals}")
@@ -69,12 +65,11 @@ async def run_full_audit():
     print("[AUDIT] 7. Zero Synthetic Observation Audit...")
     for item in matched:
         if not item.is_matched:
-            assert item.actual_mw is None or item.forecast_mw is None, (
-                "Unmatched interval contains fabricated values!"
-            )
+            assert item.actual_mw is None or item.forecast_mw is None, "Unmatched interval contains fabricated values!"
     print("       -> Zero synthetic values confirmed across all missing intervals.")
 
     print("\n[AUDIT] === ALL 7 AUDIT CRITERIA SATISFIED SUCCESSFULLY ===")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     asyncio.run(run_full_audit())

@@ -94,9 +94,7 @@ def test_missing_data_handling():
     target_start = "2026-01-03T00:00:00Z"
 
     # Only actual is present, no forecast
-    actual_records = [
-        {"startTime": target_start, "generation": 3000, "settlementPeriod": 1}
-    ]
+    actual_records = [{"startTime": target_start, "generation": 3000, "settlementPeriod": 1}]
     forecast_records = []
 
     matched, quality = AnalyticsService.match_actuals_and_forecasts(
@@ -177,3 +175,57 @@ def test_metric_calculation_known_vectors():
     assert summary.matched_intervals == 2
     assert summary.total_expected_intervals == 3
     assert summary.coverage_percent == 66.67
+
+
+def test_data_consistency_invariants_and_coverage_denominator():
+    """
+    Verify core invariants:
+    1. Error is None whenever actual or forecast is missing (no silent interpolation).
+    2. MAE, RMSE, Bias only aggregate valid matched pairs.
+    3. Coverage denominator strictly equals total expected intervals.
+    4. Daily matched sums equal overall matched interval count.
+    """
+    actual_records = [
+        {"startTime": "2026-01-01T00:00:00Z", "generation": 1000, "settlementPeriod": 1},
+        {"startTime": "2026-01-01T00:30:00Z", "generation": 1100, "settlementPeriod": 2},
+        {"startTime": "2026-01-01T01:00:00Z", "generation": 1200, "settlementPeriod": 3},
+        {"startTime": "2026-01-01T01:30:00Z", "generation": 1300, "settlementPeriod": 4},
+    ]
+    # Forecasts only published hourly (at :00)
+    forecast_records = [
+        {"startTime": "2026-01-01T00:00:00Z", "publishTime": "2025-12-31T11:00:00Z", "generation": 1050},
+        {"startTime": "2026-01-01T01:00:00Z", "publishTime": "2025-12-31T11:00:00Z", "generation": 1150},
+    ]
+
+    matched, quality = AnalyticsService.match_actuals_and_forecasts(
+        actual_records=actual_records,
+        forecast_records=forecast_records,
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 1),
+        cutoff_hour=12,
+    )
+
+    # 1. Total intervals in 1 day = 48
+    assert len(matched) == 48
+    assert quality.matched_intervals == 2
+    assert quality.missing_forecast_intervals == 46
+    assert quality.coverage_percent == round(2 / 48 * 100, 2)
+
+    # 2. Check each matched vs unmatched interval
+    for item in matched:
+        if item.is_matched:
+            assert item.actual_mw is not None
+            assert item.forecast_mw is not None
+            assert item.error_mw == round(item.forecast_mw - item.actual_mw, 2)
+        else:
+            assert item.error_mw is None
+            assert item.absolute_error_mw is None
+
+    # 3. Check metrics aggregation
+    summary = AnalyticsService.compute_metrics(matched, date(2026, 1, 1), date(2026, 1, 1), cutoff_hour=12)
+    assert summary.matched_intervals == 2
+    assert summary.total_expected_intervals == 48
+    # MAE = (|1050 - 1000| + |1150 - 1200|) / 2 = (50 + 50) / 2 = 50.0
+    assert summary.mae_mw == 50.0
+    # Mean Signed Error = (+50 - 50) / 2 = 0.0
+    assert summary.mean_signed_error_mw == 0.0

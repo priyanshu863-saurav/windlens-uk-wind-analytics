@@ -107,7 +107,7 @@ export const KPICards: React.FC<KPICardsProps> = ({ summary, loading }) => {
       <div className="kpi-card">
         <div className="flex items-center justify-between text-slate-400 mb-1">
           <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-            Matched Half-Hours
+            Matched Pairs (≤ Cutoff)
           </span>
           <CheckCircle2 className="w-4 h-4 text-teal" />
         </div>
@@ -119,8 +119,8 @@ export const KPICards: React.FC<KPICardsProps> = ({ summary, loading }) => {
             / {summary ? summary.total_expected_intervals.toLocaleString() : '—'}
           </span>
         </div>
-        <p className="text-[11px] text-slate-400 truncate">
-          Settlement intervals (SP 1–48)
+        <p className="text-[11px] text-slate-400 truncate" title="744 hourly forecasts across 1,488 half-hour settlement periods">
+          744 hourly forecasts (24/48 SPs daily)
         </p>
       </div>
 
@@ -136,6 +136,7 @@ export const KPICards: React.FC<KPICardsProps> = ({ summary, loading }) => {
           <span className="text-2xl font-bold text-white font-mono-numbers tracking-tight">
             {summary ? `${summary.coverage_percent.toFixed(1)}%` : '—'}
           </span>
+          <span className="text-xs font-medium text-slate-400">SP coverage</span>
         </div>
         <div className="w-full bg-[#0E1626] rounded-full h-1.5 mt-2 overflow-hidden border border-[#253249]/60">
           <div
@@ -143,6 +144,9 @@ export const KPICards: React.FC<KPICardsProps> = ({ summary, loading }) => {
             style={{ width: `${Math.min(100, summary?.coverage_percent || 0)}%` }}
           ></div>
         </div>
+        <p className="text-[10px] text-slate-400 mt-1 truncate">
+          100% of hourly forecast intervals
+        </p>
       </div>
 
     </div>

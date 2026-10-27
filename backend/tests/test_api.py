@@ -35,9 +35,7 @@ def test_summary_endpoint(mock_get_forecasts, mock_get_actuals):
         }
     ]
 
-    response = client.get(
-        "/api/summary?start_date=2026-01-01&end_date=2026-01-01&cutoff_hour=12"
-    )
+    response = client.get("/api/summary?start_date=2026-01-01&end_date=2026-01-01&cutoff_hour=12")
     assert response.status_code == 200
     data = response.json()
     assert "mae_mw" in data
@@ -68,9 +66,7 @@ def test_generation_series_endpoint(mock_get_forecasts, mock_get_actuals):
         }
     ]
 
-    response = client.get(
-        "/api/generation?start_date=2026-01-01&end_date=2026-01-01&cutoff_hour=12"
-    )
+    response = client.get("/api/generation?start_date=2026-01-01&end_date=2026-01-01&cutoff_hour=12")
     assert response.status_code == 200
     data = response.json()
     assert "intervals" in data
