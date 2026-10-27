@@ -1,0 +1,10 @@
+line-length = 120
+
+[lint]
+select = ["E", "F", "I", "B", "UP", "RUF"]
+ignore = [
+    "B008",     # FastAPI Query() in function signature is idiomatic
+    "ASYNC230", # Local file caching with open()
+    "BLE001",   # Catching exceptions in network retry
+    "E712"      # Pandas Series boolean filter
+]

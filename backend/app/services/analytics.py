@@ -1,30 +1,28 @@
-from datetime import datetime, date, time, timedelta, timezone
-from typing import Dict, List, Optional, Tuple
-import math
-import pandas as pd
+from datetime import UTC, date, datetime, timedelta
+
 import numpy as np
+import pandas as pd
 
 from app.schemas.models import (
-    MatchedInterval,
-    MetricSummary,
     DailyMetric,
     DataQualityReport,
-    GenerationSeriesResponse,
+    MatchedInterval,
+    MetricSummary,
 )
+
 
 def parse_utc_timestamp(ts_str: str) -> datetime:
     """Safely parse ISO 8601 timestamp and ensure it has UTC timezone."""
     dt = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
     else:
-        dt = dt.astimezone(timezone.utc)
+        dt = dt.astimezone(UTC)
     return dt
 
+
 def calculate_decision_cutoff(
-    target_dt: datetime,
-    cutoff_hour: int = 12,
-    cutoff_minute: int = 0
+    target_dt: datetime, cutoff_hour: int = 12, cutoff_minute: int = 0
 ) -> datetime:
     """
     Day-Ahead decision cutoff calculation.
@@ -40,25 +38,26 @@ def calculate_decision_cutoff(
         cutoff_hour,
         cutoff_minute,
         0,
-        tzinfo=timezone.utc
+        tzinfo=UTC,
     )
+
 
 class AnalyticsService:
     @staticmethod
     def match_actuals_and_forecasts(
-        actual_records: List[Dict],
-        forecast_records: List[Dict],
+        actual_records: list[dict],
+        forecast_records: list[dict],
         start_date: date,
         end_date: date,
         cutoff_hour: int = 12,
-        cutoff_minute: int = 0
-    ) -> Tuple[List[MatchedInterval], DataQualityReport]:
+        cutoff_minute: int = 0,
+    ) -> tuple[list[MatchedInterval], DataQualityReport]:
         """
         Match actual wind generation with the latest forecast published
         strictly on or before the day-ahead decision cutoff.
         """
         # 1. Index actual generation by normalized UTC startTime string
-        actual_map: Dict[str, Dict] = {}
+        actual_map: dict[str, dict] = {}
         for rec in actual_records:
             st = rec.get("startTime")
             if not st:
@@ -77,7 +76,7 @@ class AnalyticsService:
                         actual_map[iso_key] = rec
 
         # 2. Group forecasts by target delivery startTime
-        forecast_by_start: Dict[str, List[Dict]] = {}
+        forecast_by_start: dict[str, list[dict]] = {}
         for rec in forecast_records:
             st = rec.get("startTime")
             if not st:
@@ -90,9 +89,13 @@ class AnalyticsService:
                 forecast_by_start[iso_key].append(rec)
 
         # 3. Generate all expected half-hour intervals in the window
-        matched_intervals: List[MatchedInterval] = []
-        curr_dt = datetime(start_date.year, start_date.month, start_date.day, 0, 0, 0, tzinfo=timezone.utc)
-        end_dt = datetime(end_date.year, end_date.month, end_date.day, 23, 30, 0, tzinfo=timezone.utc)
+        matched_intervals: list[MatchedInterval] = []
+        curr_dt = datetime(
+            start_date.year, start_date.month, start_date.day, 0, 0, 0, tzinfo=UTC
+        )
+        end_dt = datetime(
+            end_date.year, end_date.month, end_date.day, 23, 30, 0, tzinfo=UTC
+        )
 
         total_expected = 0
         matched_count = 0
@@ -103,15 +106,21 @@ class AnalyticsService:
             total_expected += 1
             iso_key = curr_dt.isoformat()
             settlement_d_str = curr_dt.date().isoformat()
-            
+
             # Day-ahead purchasing cutoff for this interval
             cutoff_dt = calculate_decision_cutoff(curr_dt, cutoff_hour, cutoff_minute)
             cutoff_iso = cutoff_dt.isoformat()
 
             # Find actual
             actual_rec = actual_map.get(iso_key)
-            actual_mw = float(actual_rec["generation"]) if actual_rec and "generation" in actual_rec else None
-            settlement_period = actual_rec.get("settlementPeriod") if actual_rec else None
+            actual_mw = (
+                float(actual_rec["generation"])
+                if actual_rec and "generation" in actual_rec
+                else None
+            )
+            settlement_period = (
+                actual_rec.get("settlementPeriod") if actual_rec else None
+            )
 
             # Find eligible forecasts: published <= cutoff_dt
             candidate_forecasts = forecast_by_start.get(iso_key, [])
@@ -129,8 +138,14 @@ class AnalyticsService:
                 eligible.sort(key=lambda x: x[0], reverse=True)
                 selected_forecast = eligible[0][1]
 
-            forecast_mw = float(selected_forecast["generation"]) if selected_forecast and "generation" in selected_forecast else None
-            forecast_pub_time = selected_forecast.get("publishTime") if selected_forecast else None
+            forecast_mw = (
+                float(selected_forecast["generation"])
+                if selected_forecast and "generation" in selected_forecast
+                else None
+            )
+            forecast_pub_time = (
+                selected_forecast.get("publishTime") if selected_forecast else None
+            )
 
             is_matched = (actual_mw is not None) and (forecast_mw is not None)
             if is_matched:
@@ -156,13 +171,15 @@ class AnalyticsService:
                     absolute_error_mw=abs_error_mw,
                     forecast_publish_time=forecast_pub_time,
                     cutoff_time=cutoff_iso,
-                    is_matched=is_matched
+                    is_matched=is_matched,
                 )
             )
 
             curr_dt += timedelta(minutes=30)
 
-        coverage_pct = round((matched_count / total_expected * 100.0) if total_expected > 0 else 0.0, 2)
+        coverage_pct = round(
+            (matched_count / total_expected * 100.0) if total_expected > 0 else 0.0, 2
+        )
 
         quality_report = DataQualityReport(
             total_actual_records=len(actual_records),
@@ -172,22 +189,22 @@ class AnalyticsService:
             missing_forecast_intervals=missing_forecast_count,
             coverage_percent=coverage_pct,
             api_status="Operational",
-            last_fetched_utc=datetime.now(timezone.utc).isoformat(),
+            last_fetched_utc=datetime.now(UTC).isoformat(),
             notes=[
                 f"Evaluated {total_expected} half-hour intervals from {start_date} to {end_date}.",
                 f"Cutoff rule: Day-Ahead D-1 at {cutoff_hour:02d}:{cutoff_minute:02d} UTC strictly enforced.",
-                "Zero synthetic records injected; genuine Elexon observations only."
-            ]
+                "Zero synthetic records injected; genuine Elexon observations only.",
+            ],
         )
 
         return matched_intervals, quality_report
 
     @staticmethod
     def compute_metrics(
-        matched_intervals: List[MatchedInterval],
+        matched_intervals: list[MatchedInterval],
         start_date: date,
         end_date: date,
-        cutoff_hour: int = 12
+        cutoff_hour: int = 12,
     ) -> MetricSummary:
         """
         Compute overall MAE, RMSE, Mean Signed Error, and daily summaries.
@@ -195,7 +212,9 @@ class AnalyticsService:
         valid_pairs = [
             (item.actual_mw, item.forecast_mw)
             for item in matched_intervals
-            if item.is_matched and item.actual_mw is not None and item.forecast_mw is not None
+            if item.is_matched
+            and item.actual_mw is not None
+            and item.forecast_mw is not None
         ]
 
         total_expected = len(matched_intervals)
@@ -207,18 +226,20 @@ class AnalyticsService:
             errors = forecasts - actuals
 
             mae = float(np.mean(np.abs(errors)))
-            rmse = float(np.sqrt(np.mean(errors ** 2)))
+            rmse = float(np.sqrt(np.mean(errors**2)))
             mean_signed_error = float(np.mean(errors))
         else:
             mae = 0.0
             rmse = 0.0
             mean_signed_error = 0.0
 
-        coverage_pct = round((n / total_expected * 100.0) if total_expected > 0 else 0.0, 2)
+        coverage_pct = round(
+            (n / total_expected * 100.0) if total_expected > 0 else 0.0, 2
+        )
 
         # Compute daily metrics
         df = pd.DataFrame([m.model_dump() for m in matched_intervals])
-        daily_metrics: List[DailyMetric] = []
+        daily_metrics: list[DailyMetric] = []
 
         if not df.empty:
             for d_str, group in df.groupby("settlement_date"):
@@ -232,7 +253,7 @@ class AnalyticsService:
                     d_err = d_fc - d_act
 
                     d_mae = float(round(np.mean(np.abs(d_err)), 2))
-                    d_rmse = float(round(np.sqrt(np.mean(d_err ** 2)), 2))
+                    d_rmse = float(round(np.sqrt(np.mean(d_err**2)), 2))
                     d_m_err = float(round(np.mean(d_err), 2))
                     d_act_avg = float(round(np.mean(d_act), 2))
                     d_fc_avg = float(round(np.mean(d_fc), 2))
@@ -255,7 +276,7 @@ class AnalyticsService:
                         forecast_avg_mw=d_fc_avg,
                         matched_count=grp_n,
                         expected_count=exp_n,
-                        coverage_percent=d_cov
+                        coverage_percent=d_cov,
                     )
                 )
 
@@ -271,6 +292,8 @@ class AnalyticsService:
             date_range_start=start_date.isoformat(),
             date_range_end=end_date.isoformat(),
             cutoff_hour_utc=cutoff_hour,
-            cutoff_rule_description=f"Day-Ahead (D-1 at {cutoff_hour:02d}:00 UTC). Latest published forecast <= cutoff.",
-            daily_metrics=daily_metrics
+            cutoff_rule_description=(
+                f"Day-Ahead (D-1 at {cutoff_hour:02d}:00 UTC). Latest published forecast <= cutoff."
+            ),
+            daily_metrics=daily_metrics,
         )

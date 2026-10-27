@@ -1,17 +1,17 @@
 import logging
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.core.config import settings
 from app.api.routes import router
+from app.core.config import settings
 
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 )
 logger = logging.getLogger("windlens")
 
-from contextlib import asynccontextmanager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -19,6 +19,7 @@ async def lifespan(app: FastAPI):
     logger.info(f"Target Elexon Base URL: {settings.ELEXON_BASE_URL}")
     yield
     logger.info("WindLens API shutting down...")
+
 
 app = FastAPI(
     title="WindLens — UK Wind Generation Forecast Analytics API",
@@ -29,7 +30,7 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # Configure CORS
