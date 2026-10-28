@@ -89,3 +89,48 @@ def test_data_quality_endpoint(mock_get_forecasts, mock_get_actuals):
     assert "total_actual_records" in data
     assert "total_forecast_records" in data
     assert "api_status" in data
+
+
+def test_cors_production_vercel_origin_get():
+    response = client.get(
+        "/health",
+        headers={"Origin": "https://windlens-uk-wind-analytics.vercel.app"},
+    )
+    assert response.status_code == 200
+    assert response.headers.get("access-control-allow-origin") == "https://windlens-uk-wind-analytics.vercel.app"
+    assert response.headers.get("access-control-allow-credentials") == "true"
+
+
+def test_cors_production_vercel_origin_preflight():
+    response = client.options(
+        "/api/summary",
+        headers={
+            "Origin": "https://windlens-uk-wind-analytics.vercel.app",
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "Content-Type",
+        },
+    )
+    assert response.status_code == 200
+    assert response.headers.get("access-control-allow-origin") == "https://windlens-uk-wind-analytics.vercel.app"
+    assert "GET" in response.headers.get("access-control-allow-methods", "")
+
+
+def test_cors_vercel_preview_regex():
+    preview_origin = "https://windlens-uk-wind-analytics-preview-123.vercel.app"
+    response = client.options(
+        "/health",
+        headers={
+            "Origin": preview_origin,
+            "Access-Control-Request-Method": "GET",
+        },
+    )
+    assert response.status_code == 200
+    assert response.headers.get("access-control-allow-origin") == preview_origin
+
+
+def test_cors_local_dev_origins():
+    for local_origin in ["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:3000"]:
+        response = client.get("/health", headers={"Origin": local_origin})
+        assert response.status_code == 200
+        assert response.headers.get("access-control-allow-origin") == local_origin
+

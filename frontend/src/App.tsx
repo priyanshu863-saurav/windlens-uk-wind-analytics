@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { api } from './services/api';
+import { api, getApiBaseUrl } from './services/api';
 import {
   MetricSummary,
   MatchedInterval,
@@ -143,12 +143,31 @@ export const App: React.FC = () => {
           {error && (
             <div className="bg-rose-950/80 border border-rose-800/80 rounded-xl p-4 flex items-start space-x-3 text-rose-200">
               <AlertCircle className="w-5 h-5 text-rose-400 mt-0.5 shrink-0" />
-              <div className="text-xs">
-                <span className="font-bold text-sm block text-rose-100">Connection Error</span>
-                <span>{error}</span>
-                <p className="mt-1 text-rose-300">
-                  Ensure the FastAPI backend is running on <code className="bg-rose-900/60 px-1 py-0.5 rounded">http://127.0.0.1:8000</code>.
+              <div className="text-xs flex-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-sm text-rose-100">Connection Error</span>
+                  <button
+                    onClick={() => {
+                      api.getHealth().then(setHealth).catch(console.warn);
+                      loadData();
+                    }}
+                    className="px-2.5 py-1 bg-rose-900/80 hover:bg-rose-800 text-rose-100 text-[11px] font-semibold rounded-md border border-rose-700 transition-colors cursor-pointer"
+                  >
+                    Retry Connection
+                  </button>
+                </div>
+                <span className="block mt-1 font-mono text-[11px] text-rose-200">{error}</span>
+                <p className="mt-2 text-rose-300">
+                  Target API:{' '}
+                  <code className="bg-rose-900/60 px-1.5 py-0.5 rounded font-mono text-[11px] text-white">
+                    {getApiBaseUrl() || 'http://localhost:8000 (Vite dev proxy)'}
+                  </code>
                 </p>
+                {getApiBaseUrl().includes('onrender.com') && (
+                  <p className="mt-1 text-slate-300 text-[11px]">
+                    Note: The backend is hosted on Render free tier, which sleeps when idle. Cold start may take 30–60 seconds on initial wake.
+                  </p>
+                )}
               </div>
             </div>
           )}

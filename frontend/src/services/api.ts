@@ -5,11 +5,32 @@ import {
   HealthResponse
 } from '../types';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+export const PRODUCTION_API_URL = 'https://windlens-backend.onrender.com';
+
+/**
+ * Resolves the target API base URL.
+ * Priority:
+ * 1. Explicit VITE_API_BASE_URL environment variable if provided.
+ * 2. In production builds (Vercel / deployed preview), fallback to the deployed Render backend.
+ * 3. In local development, fallback to empty string to use Vite dev proxy (/api -> localhost:8000).
+ */
+export function getApiBaseUrl(): string {
+  const envUrl = import.meta.env.VITE_API_BASE_URL;
+  if (typeof envUrl === 'string' && envUrl.trim() !== '') {
+    return envUrl.trim().replace(/\/+$/, '');
+  }
+  if (import.meta.env.PROD) {
+    return PRODUCTION_API_URL;
+  }
+  return '';
+}
+
+export const API_BASE = getApiBaseUrl();
 
 export const api = {
   async getHealth(): Promise<HealthResponse> {
-    const res = await fetch(`${API_BASE}/health`);
+    const base = getApiBaseUrl();
+    const res = await fetch(`${base}/health`);
     if (!res.ok) throw new Error(`Health check failed: ${res.statusText}`);
     return res.json();
   },
@@ -21,7 +42,8 @@ export const api = {
       cutoff_hour: cutoffHour.toString(),
       use_cache: 'true'
     });
-    const res = await fetch(`${API_BASE}/api/summary?${params}`);
+    const base = getApiBaseUrl();
+    const res = await fetch(`${base}/api/summary?${params}`);
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.detail || `Failed to fetch summary: ${res.statusText}`);
@@ -40,7 +62,8 @@ export const api = {
       cutoff_hour: cutoffHour.toString(),
       use_cache: 'true'
     });
-    const res = await fetch(`${API_BASE}/api/generation?${params}`);
+    const base = getApiBaseUrl();
+    const res = await fetch(`${base}/api/generation?${params}`);
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.detail || `Failed to fetch generation series: ${res.statusText}`);
@@ -55,7 +78,8 @@ export const api = {
       cutoff_hour: cutoffHour.toString(),
       use_cache: 'true'
     });
-    const res = await fetch(`${API_BASE}/api/data-quality?${params}`);
+    const base = getApiBaseUrl();
+    const res = await fetch(`${base}/api/data-quality?${params}`);
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.detail || `Failed to fetch data quality: ${res.statusText}`);
